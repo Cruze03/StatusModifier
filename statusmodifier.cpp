@@ -102,6 +102,7 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen
 		m_StatusHook = funchook_create();
 		funchook_prepare(m_StatusHook, (void **)&StatusPrintClient_t, (void *)Hook_StatusPrintClient);
 		funchook_install(m_StatusHook, 0);
+		ConMsg("[StatusModifier] StatusPrint of client hooked successfully.\n");
 	}
 
 	g_SMAPI->AddListener(this, this);
