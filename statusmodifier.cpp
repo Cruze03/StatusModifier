@@ -76,7 +76,6 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
 {
 	PLUGIN_SAVEVARS();
 
-	GET_V_IFACE_CURRENT(GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION);
 	GET_V_IFACE_CURRENT(GetEngineFactory, engine, IVEngineServer2,
 						SOURCE2ENGINETOSERVER_INTERFACE_VERSION);
 	GET_V_IFACE_CURRENT(GetFileSystemFactory, g_pFullFileSystem, IFileSystem,
@@ -105,7 +104,7 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
 		"48 8B C4 55 48 8D A8 ? ? ? ? 48 81 EC ? ? ? ? 48 89 58 ? 49 8B D8";
 #else
 	const char *szSignature =
-		"55 48 89 E5 41 57 41 56 4C 8D 3D ? ? ? ? 41 55 41 54 49 89 D4";
+		"55 48 89 E5 41 57 41 56 4C 8D 3D ? ? ? ? 41 55 41 54";
 #endif
 
 	StatusPrintClient_t =
@@ -315,7 +314,7 @@ void ErrorLog(const char *msg, ...)
 ///////////////////////////////////////
 const char *StatusModifier::GetLicense() { return "GPL"; }
 
-const char *StatusModifier::GetVersion() { return "1.0.1"; }
+const char *StatusModifier::GetVersion() { return "1.0.2"; }
 
 const char *StatusModifier::GetDate() { return __DATE__; }
 
