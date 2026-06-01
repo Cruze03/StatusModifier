@@ -1,0 +1,16 @@
+{
+	"Signatures": {
+		"StatusCommand": {
+			"library": "engine",
+			"windows": "48 8B C4 55 48 8D A8 ? ? ? ? 48 81 EC ? ? ? ? 48 89 58 ? 49 8B D8",
+			"linux": "55 48 89 E5 41 57 41 56 4C 8D 3D ? ? ? ? 41 55 41 54"
+		}
+	},
+	"Offsets": {
+		"GameEntitySystem": {
+			"windows": 88,
+			"linux": 80
+		}
+	},
+	"Patches": {}
+}

@@ -20,6 +20,12 @@
 #define GAMEBIN "/csgo/bin/linuxsteamrt64/"
 #endif
 
+#ifdef AMBUILD
+#include "version_gen.h"
+#else
+#include "version_gen_placeholder.h"
+#endif
+
 #define MAXPLAYERS 65
 
 class StatusModifier final : public ISmmPlugin, public IMetamodListener
@@ -31,15 +37,15 @@ public:
     void Hook_StartupServer(const GameSessionConfiguration_t &config, ISource2WorldSession *pSession, const char *pszMapName);
     void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
 
-private:
-    const char *GetAuthor();
-    const char *GetName();
-    const char *GetDescription();
-    const char *GetURL();
-    const char *GetLicense();
-    const char *GetVersion();
-    const char *GetDate();
-    const char *GetLogTag();
+public:
+    const char *GetAuthor() { return PLUGIN_AUTHOR; }
+    const char *GetName() { return PLUGIN_DISPLAY_NAME; }
+    const char *GetDescription() { return PLUGIN_DESCRIPTION; }
+    const char *GetURL() { return PLUGIN_URL; }
+    const char *GetLicense() { return PLUGIN_LICENSE; }
+    const char *GetVersion() { return PLUGIN_FULL_VERSION; }
+    const char *GetDate() { return __DATE__; }
+    const char *GetLogTag() { return PLUGIN_LOGTAG; }
 };
 
 void RegisterEventListeners();

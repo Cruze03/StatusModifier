@@ -1,0 +1,11 @@
+{
+    "name": "statusmodifier",
+    "alias": "StatusModifier",
+    "display_name": "StatusModifier",
+    "description": "Remove players you dont want to display in client console status command.",
+    "author": "Cruze",
+    "url": "https://github.com/Cruze03/statusmodifier",
+    "log_tag": "StatusModifier",
+    "license": "GPL v3 License",
+    "version": "{{parsed-version}}"
+}

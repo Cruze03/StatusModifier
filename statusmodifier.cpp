@@ -10,11 +10,14 @@
 #include <sstream>
 
 #include "serversideclient.h"
+#include "gameconfig.h"
 
 StatusModifier g_StatusModifier;
 PLUGIN_EXPOSE(StatusModifier, g_StatusModifier);
 IVEngineServer2 *engine = nullptr;
 CGameEntitySystem *g_pEntitySystem = nullptr;
+
+CGameConfig *g_GameConfig = nullptr;
 
 double g_flUniversalTime;
 float g_flLastTickedTime;
@@ -31,13 +34,8 @@ funchook_t *m_StatusHook;
 
 CGameEntitySystem *GameEntitySystem()
 {
-#ifdef WIN32
-	static int offset = 88;
-#else
-	static int offset = 80;
-#endif
-	return *reinterpret_cast<CGameEntitySystem **>(
-		(uintptr_t)(g_pGameResourceServiceServer) + offset);
+	static int offset = g_GameConfig->GetOffset("GameEntitySystem");
+	return *reinterpret_cast<CGameEntitySystem **>((uintptr_t)(g_pGameResourceServiceServer) + offset);
 }
 
 // Will return null between map end & new map startup, null check if necessary!
@@ -96,16 +94,18 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
 	SH_ADD_HOOK(IServerGameDLL, GameFrame, g_pSource2Server,
 				SH_MEMBER(this, &StatusModifier::Hook_GameFrame), true);
 
+	g_GameConfig = new CGameConfig();
+	char conf_error[255] = "";
+	if (!g_GameConfig->Init(conf_error, sizeof(conf_error)))
+	{
+		snprintf(error, maxlen, "Could not read %s: %s", g_GameConfig->GetPath().c_str(), conf_error);
+		ErrorLog(error);
+		return false;
+	}
+
 	CModule libengine(engine);
 
-	// search for "challenging" in engine2.dll or libengine2.so. Go to the top
-#ifdef _WIN32
-	const char *szSignature =
-		"48 8B C4 55 48 8D A8 ? ? ? ? 48 81 EC ? ? ? ? 48 89 58 ? 49 8B D8";
-#else
-	const char *szSignature =
-		"55 48 89 E5 41 57 41 56 4C 8D 3D ? ? ? ? 41 55 41 54";
-#endif
+	const char *szSignature = g_GameConfig->GetSignature("StatusCommand");
 
 	StatusPrintClient_t =
 		libengine.FindPattern(szSignature).RCast<decltype(StatusPrintClient_t)>();
@@ -310,24 +310,3 @@ void ErrorLog(const char *msg, ...)
 		fclose(pFile);
 	}
 }
-
-///////////////////////////////////////
-const char *StatusModifier::GetLicense() { return "GPL"; }
-
-const char *StatusModifier::GetVersion() { return "1.0.2"; }
-
-const char *StatusModifier::GetDate() { return __DATE__; }
-
-const char *StatusModifier::GetLogTag() { return "StatusModifier"; }
-
-const char *StatusModifier::GetAuthor() { return "Cruze"; }
-
-const char *StatusModifier::GetDescription()
-{
-	return "Remove players you don't want to display in client console `status` "
-		   "command.";
-}
-
-const char *StatusModifier::GetName() { return "Status Modifier"; }
-
-const char *StatusModifier::GetURL() { return "https://github.com/cruze03"; }
