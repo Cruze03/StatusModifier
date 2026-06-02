@@ -3,6 +3,8 @@
 #include "utlvector.h"
 #include <playerslot.h>
 
+extern CGlobalVars *GetGlobals();
+
 class Player
 {
 public:
@@ -111,10 +113,28 @@ public:
         m_vecPlayers[slot.Get()] = nullptr;
     }
 
-    Player *GetPlayer(int slot)
+    void OnLateLoad()
     {
-        return GetPlayer(CPlayerSlot(slot));
+        if (!GetGlobals())
+            return;
+
+        for (int i = 0; i < GetGlobals()->maxClients; i++)
+        {
+            CCSPlayerController *pController = CCSPlayerController::FromSlot(i);
+
+            if (!pController || !pController->IsController() || !pController->IsConnected())
+                continue;
+
+            if (pController->IsBot())
+            {
+                OnBotConnected(i);
+                continue;
+            }
+
+            OnClientConnected(i, pController->m_steamID(), "0.0.0.0:0");
+        }
     }
+
     Player *GetPlayer(CPlayerSlot slot)
     {
         if (slot.Get() < 0 || slot.Get() >= MAXPLAYERS)

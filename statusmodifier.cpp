@@ -224,6 +224,8 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
   if (late)
   {
     g_pEntitySystem = GameEntitySystem();
+    g_playerManager->OnLateLoad();
+    Hook_GameServerSteamAPIActivated();
   }
 
   return true;
@@ -405,12 +407,8 @@ void LoadConfig()
   file.close();
 }
 
-CON_COMMAND_F(mm_excludeslot, "Exclude slot from status",
-              FCVAR_SERVER_CAN_EXECUTE)
+CON_COMMAND_F(mm_excludeslot, "Exclude slot from status", FCVAR_SPONLY | FCVAR_LINKED_CONCOMMAND)
 {
-  if (context.GetPlayerSlot() != -1)
-    return;
-
   if (args.ArgC() < 2)
   {
     ConMsg("Usage: mm_excludeslot <slot>\n");
@@ -423,12 +421,8 @@ CON_COMMAND_F(mm_excludeslot, "Exclude slot from status",
   ConMsg("[StatusModifier] Added slot %d to exclude list.\n", slot);
 }
 
-CON_COMMAND_F(mm_removeexcludeslot, "Remove exclusion from status",
-              FCVAR_SERVER_CAN_EXECUTE)
+CON_COMMAND_F(mm_removeexcludeslot, "Remove exclusion from status", FCVAR_SPONLY | FCVAR_LINKED_CONCOMMAND)
 {
-  if (context.GetPlayerSlot() != -1)
-    return;
-
   if (args.ArgC() < 2)
   {
     ConMsg("Usage: mm_removeexcludeslot <slot>\n");
@@ -441,12 +435,8 @@ CON_COMMAND_F(mm_removeexcludeslot, "Remove exclusion from status",
   ConMsg("[StatusModifier] Removed slot %d from exclude list.\n", slot);
 }
 
-CON_COMMAND_F(mm_listexcludeslots, "List exclusion from status",
-              FCVAR_SERVER_CAN_EXECUTE)
+CON_COMMAND_F(mm_listexcludeslots, "List exclusion from status", FCVAR_SPONLY | FCVAR_LINKED_CONCOMMAND)
 {
-  if (context.GetPlayerSlot() != -1)
-    return;
-
   if (g_mExcludeSlots.size() == 0)
   {
     ConMsg("No slots are excluded.\n");
