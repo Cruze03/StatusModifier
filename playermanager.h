@@ -12,6 +12,7 @@ public:
 
     bool IsFakeClient() { return m_bFakeClient; }
     bool IsConnected() { return m_bConnected; }
+    const char *GetIpAddress() { return m_strIp.c_str(); }
     uint64 GetSteamId64() { return m_SteamID->ConvertToUint64(); }
     std::string GetSteam2Id()
     {
@@ -25,11 +26,22 @@ public:
             m_SteamID->GetAccountID() >> 1);
         return steam2;
     }
+    std::string GetSteam3Id()
+    {
+        char steam3[32];
+        V_snprintf(
+            steam3,
+            sizeof(steam3),
+            "[U:1:%u]",
+            m_SteamID->GetAccountID());
+        return steam3;
+    }
     CCSPlayerController *GetController()
     {
         return CCSPlayerController::FromSlot(m_slot.Get());
     }
 
+    void SetIpAddress(std::string strIp) { m_strIp = strIp; }
     void SetConnected() { m_bConnected = true; }
     void SetSteamId(const CSteamID *steamID) { m_SteamID = steamID; }
 
@@ -38,6 +50,7 @@ private:
     const CSteamID *m_SteamID;
     CPlayerSlot m_slot;
     bool m_bFakeClient;
+    std::string m_strIp;
 };
 
 class CPlayerManager
@@ -69,6 +82,7 @@ public:
         if (xuid != 0)
         {
             pPlayer->SetSteamId(new CSteamID(xuid));
+            pPlayer->SetIpAddress(std::string(pszNetworkID));
             m_iPlayerCount++;
         }
         m_vecPlayers[slot.Get()] = pPlayer;

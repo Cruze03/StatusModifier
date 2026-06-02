@@ -7,16 +7,17 @@
 #       |_|  \_\|______|    \/    |______||_| \_|/__/     \__\|_| \_|   |_|   /_____|
 #
 #
-#			Server name: {SERVER_NAME}
+#			Server name: {SERVERNAME}
 #			Server Core Team: Cruze
 #			Website: revenantz.net
 #			Discord: revenantz.net/discord
-#			Server IP: {SERVER_IP}
-#			Player count: {PLAYER_COUNT}/{MAXPLAYERS}
-#			Current date: {CURRENT_DATE}
-#			Current time: {CURRENT_TIME}
-#			Current map: {CURRENT_MAP}
+#			Server IP: {SERVERIP}
+#			Server uptime: {UPTIME}
+#			Player count: {PLAYERCOUNT}/{MAXPLAYERS}
+#			Current date: {CURRENTDATE}
+#			Current time: {CURRENTTIME}
+#			Current map: {CURRENTMAP}
 —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-# userid  |    Playername      |      SteamID            |  Time     |  Ping
-# {USERID}	       {PLAYERNAME}	      {STEAM32}	    {CONNECTION_TIME}      {CLIENT_PING}
+# userid  |    playername      |      steamid            |  time     |  ping
+# {PLAYERUSERID}	       {PLAYERNAME}	      {STEAM32}	    {PLAYERTIME}      {PLAYERPING}
 —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

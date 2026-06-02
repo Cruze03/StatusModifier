@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <chrono>
 
 #include "gameconfig.h"
 #include "playermanager.h"
@@ -48,6 +49,7 @@ CPlayerManager *g_playerManager = nullptr;
 ISteamGameServer *g_pGameServer = nullptr;
 CSteamGameServerAPIContext steamctx;
 std::string g_sServerIP;
+std::chrono::time_point<std::chrono::steady_clock> g_chServerStartTime;
 
 CGameEntitySystem *GameEntitySystem()
 {
@@ -113,7 +115,7 @@ void FASTCALL Hook_StatusFullPrintClient(CNetworkGameServerBase *pBase,
   std::string buffer;
   for (std::string message : g_StatusArray)
   {
-    if (message.find("{USERID}") != std::string::npos)
+    if (message.find("{PLAYERUSERID}") != std::string::npos)
     {
       if (playerlist)
         continue;
@@ -216,6 +218,8 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
   g_SMAPI->AddListener(this, this);
 
   g_playerManager = new CPlayerManager();
+
+  g_chServerStartTime = std::chrono::steady_clock::now();
 
   if (late)
   {
@@ -552,33 +556,33 @@ std::string CheckMessageVariables(const std::string &message, int slot)
   std::string sMessage = message;
 
   // {SERVER_IP}
-  if (sMessage.find("{SERVER_IP}") != std::string::npos)
-    ReplaceAll(sMessage, "{SERVER_IP}", g_sServerIP.c_str());
+  if (sMessage.find("{SERVERIP}") != std::string::npos)
+    ReplaceAll(sMessage, "{SERVERIP}", g_sServerIP.c_str());
 
-  // {SERVER_NAME}
-  if (sMessage.find("{SERVER_NAME}") != std::string::npos)
+  // {SERVERNAME}
+  if (sMessage.find("{SERVERNAME}") != std::string::npos)
   {
     // g_pCVar face is needed for this
     static ConVarRefAbstract hostname("hostname");
 
     if (hostname.IsValidRef())
     {
-      ReplaceAll(sMessage, "{SERVER_NAME}", hostname.GetString().Get());
+      ReplaceAll(sMessage, "{SERVERNAME}", hostname.GetString().Get());
     }
   }
 
-  // {CURRENT_MAP}
-  if (sMessage.find("{CURRENT_MAP}") != std::string::npos)
+  // {CURRENTMAP}
+  if (sMessage.find("{CURRENTMAP}") != std::string::npos)
   {
     if (GetGlobals())
     {
-      ReplaceAll(sMessage, "{CURRENT_MAP}", GetGlobals()->mapname.ToCStr());
+      ReplaceAll(sMessage, "{CURRENTMAP}", GetGlobals()->mapname.ToCStr());
     }
   }
 
-  // {PLAYER_COUNT}
-  if (sMessage.find("{PLAYER_COUNT}") != std::string::npos)
-    ReplaceAll(sMessage, "{PLAYER_COUNT}",
+  // {PLAYERCOUNT}
+  if (sMessage.find("{PLAYERCOUNT}") != std::string::npos)
+    ReplaceAll(sMessage, "{PLAYERCOUNT}",
                std::to_string(g_playerManager->GetPlayerCount()));
 
   // {MAXPLAYERS}
@@ -608,12 +612,13 @@ std::string CheckMessageVariables(const std::string &message, int slot)
       {
         constexpr size_t kIntPadding = 4;
         constexpr size_t kSteamPadding = 17;
+        constexpr size_t kIpPadding = 17;
         constexpr size_t kTimePadding = 7;
 
-        // {USERID}
-        if (sMessage.find("{USERID}") != std::string::npos)
+        // {PLAYERUSERID}
+        if (sMessage.find("{PLAYERUSERID}") != std::string::npos)
           ReplaceAll(
-              sMessage, "{USERID}",
+              sMessage, "{PLAYERUSERID}",
               PadRight(engine->GetPlayerUserId(CPlayerSlot(slot)).Get(), kIntPadding));
 
         // {PLAYERNAME}
@@ -634,9 +639,18 @@ std::string CheckMessageVariables(const std::string &message, int slot)
                                               name.length() + kPadding)));
         }
 
-        // {SCORE}
-        if (sMessage.find("{SCORE}") != std::string::npos)
-          ReplaceAll(sMessage, "{SCORE}", PadRight(pController->m_iScore(), kIntPadding));
+        // {PLAYERSCORE}
+        if (sMessage.find("{PLAYERSCORE}") != std::string::npos)
+          ReplaceAll(sMessage, "{PLAYERSCORE}", PadRight(pController->m_iScore(), kIntPadding));
+
+        // {STEAMID}
+        if (sMessage.find("{STEAMID}") != std::string::npos)
+        {
+          ReplaceAll(
+              sMessage, "{STEAMID}",
+              PadRight(pPlayer->IsFakeClient() ? "BOT" : std::to_string(pPlayer->GetSteamId64()),
+                       kSteamPadding));
+        }
 
         // {STEAM32}
         if (sMessage.find("{STEAM32}") != std::string::npos)
@@ -647,21 +661,39 @@ std::string CheckMessageVariables(const std::string &message, int slot)
                        kSteamPadding));
         }
 
-        // {CONNECTION_TIME}
-        if (sMessage.find("{CONNECTION_TIME}") != std::string::npos &&
+        // {STEAM3}
+        if (sMessage.find("{STEAM3}") != std::string::npos)
+        {
+          ReplaceAll(
+              sMessage, "{STEAM3}",
+              PadRight(pPlayer->IsFakeClient() ? "BOT" : pPlayer->GetSteam3Id(),
+                       kSteamPadding));
+        }
+
+        // {PLAYERIP}
+        if (sMessage.find("{PLAYERIP}") != std::string::npos)
+        {
+          ReplaceAll(
+              sMessage, "{PLAYERIP}",
+              PadRight(pPlayer->IsFakeClient() ? "BOT" : pPlayer->GetIpAddress(),
+                       kIpPadding));
+        }
+
+        // {PLAYERTIME}
+        if (sMessage.find("{PLAYERTIME}") != std::string::npos &&
             GetGlobals())
         {
           INetChannelInfo *pInfo = engine->GetPlayerNetInfo(slot);
-          ReplaceAll(sMessage, "{CONNECTION_TIME}",
+          ReplaceAll(sMessage, "{PLAYERTIME}",
                      PadRight(pInfo ? FormatShortTime(static_cast<int>(
                                           pInfo->GetTimeConnected()))
                                     : "0s",
                               kTimePadding));
         }
 
-        // {CLIENT_PING}
-        if (sMessage.find("{CLIENT_PING}") != std::string::npos)
-          ReplaceAll(sMessage, "{CLIENT_PING}",
+        // {PLAYERPING}
+        if (sMessage.find("{PLAYERPING}") != std::string::npos)
+          ReplaceAll(sMessage, "{PLAYERPING}",
                      PadRight(pController->m_iPing(), kIntPadding));
       }
       else
@@ -671,22 +703,39 @@ std::string CheckMessageVariables(const std::string &message, int slot)
       return "";
   }
 
-  // {CURRENT_DATE}
-  if (sMessage.find("{CURRENT_DATE}") != std::string::npos)
+  // {CURRENTDATE}
+  if (sMessage.find("{CURRENTDATE}") != std::string::npos)
   {
     time_t now = time(nullptr);
     char buf[32];
     strftime(buf, sizeof(buf), "%d.%m.%Y", localtime(&now));
-    ReplaceAll(sMessage, "{CURRENT_DATE}", buf);
+    ReplaceAll(sMessage, "{CURRENTDATE}", buf);
   }
 
-  // {CURRENT_TIME}
-  if (sMessage.find("{CURRENT_TIME}") != std::string::npos)
+  // {CURRENTTIME}
+  if (sMessage.find("{CURRENTTIME}") != std::string::npos)
   {
     time_t now = time(nullptr);
     char buf[32];
     strftime(buf, sizeof(buf), "%H:%M:%S", localtime(&now));
-    ReplaceAll(sMessage, "{CURRENT_TIME}", buf);
+    ReplaceAll(sMessage, "{CURRENTTIME}", buf);
+  }
+
+  // {CURRENTDATETIME}
+  if (sMessage.find("{CURRENTDATETIME}") != std::string::npos)
+  {
+    time_t now = time(nullptr);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M:%S", localtime(&now));
+    ReplaceAll(sMessage, "{CURRENTDATETIME}", buf);
+  }
+
+  // {UPTIME}
+  if (sMessage.find("{UPTIME}") != std::string::npos)
+  {
+    auto uptime = std::chrono::steady_clock::now() - g_chServerStartTime;
+    int seconds = std::chrono::duration_cast<std::chrono::seconds>(uptime).count();
+    ReplaceAll(sMessage, "{UPTIME}", FormatShortTime(seconds));
   }
 
   // // {NEXTMAP} — no HL2SDK native; use your own tracking or engine string
