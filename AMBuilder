@@ -18,6 +18,7 @@ for sdk_target in MMSPlugin.sdk_targets:
 
   binary.compiler.cxxincludes += [
     os.path.join(builder.currentSourcePath, 'vendor', 'funchook', 'include'),
+    os.path.join(builder.sourcePath, 'public'),
     os.path.join(builder.sourcePath, 'include'),
     os.path.join(builder.sourcePath, '..', 'SchemaEntity'),
   ]
@@ -32,6 +33,7 @@ for sdk_target in MMSPlugin.sdk_targets:
       os.path.join('psapi.lib'),
       os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'funchook.lib'),
       os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'distorm.lib'),
+      os.path.join(sdk['path'], 'lib', 'public', 'win64', 'steam_api64.lib')
     ]
 
   binary.sources += [

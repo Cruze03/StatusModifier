@@ -7,10 +7,19 @@
 #include "ehandle.h"
 #include <iserver.h>
 #include <entity2/entitysystem.h>
+#include "engine/igameeventsystem.h"
+
+#include "igameevents.h"
+#include "CBaseEntity.h"
+#include "CCSPlayerController.h"
+#include "CCSPlayerPawn.h"
+
+#include "convar.h"
 #include "module.h"
 #include "ctimer.h"
 #include "funchook.h"
 #include "bitvec.h"
+#include <steam/steam_gameserver.h>
 
 #ifdef _WIN32
 #define ROOTBIN "/bin/win64/"
@@ -36,6 +45,10 @@ public:
 
     void Hook_StartupServer(const GameSessionConfiguration_t &config, ISource2WorldSession *pSession, const char *pszMapName);
     void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
+    void Hook_GameServerSteamAPIActivated();
+    void Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress, bool bFakePlayer);
+    bool Hook_ClientConnect(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, bool unk1, CBufferString *pRejectReason);
+    void Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid, const char *pszNetworkID);
 
 public:
     const char *GetAuthor() { return PLUGIN_AUTHOR; }
@@ -55,6 +68,15 @@ uint32 GetSoundEventHash(const char *pszSoundEventName);
 std::string formatCurrentTime();
 std::string formatCurrentTime2();
 void ErrorLog(const char *msg, ...);
+void LoadConfig();
+void TrimString(std::string &s);
+static void ReplaceAll(std::string &str, const std::string &from, const std::string &to);
+std::string CheckMessageVariables(const std::string &message, int slot = -1);
+std::string FormatShortTime(int seconds);
+bool GetPublicIP();
+
+template <typename T>
+std::string PadRight(const T &value, size_t width);
 
 const std::string colors_text[] = {
     "{DEFAULT}",

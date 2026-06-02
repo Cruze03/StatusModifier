@@ -105,7 +105,9 @@ for task in MMSPlugin.binaries:
     packages[sdk_name].addBinary(task.debug)
 
   # Add custom stuff here
+  config_folder = builder.AddFolder(os.path.join(packages[sdk_name].sdk_name, 'addons', MMSPlugin.metadata['name'], 'configs'))
   gamedata_folder = builder.AddFolder(os.path.join(packages[sdk_name].sdk_name, 'addons', MMSPlugin.metadata['name'], 'gamedata'))
+  builder.AddCopy(os.path.join('configs', 'statusmodifier.txt'), config_folder)
   builder.AddCopy(os.path.join('gamedata', 'statusmodifier.jsonc'), gamedata_folder)
 
   if task.debug:

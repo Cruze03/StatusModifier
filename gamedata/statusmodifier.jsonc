@@ -1,9 +1,10 @@
 {
 	"Signatures": {
-		"StatusCommand": {
+		// Search "NOTE: Printing secret stuff because non-public Steam universe.\n"
+		"StatusCommandFull": {
 			"library": "engine",
-			"windows": "48 8B C4 55 48 8D A8 ? ? ? ? 48 81 EC ? ? ? ? 48 89 58 ? 49 8B D8",
-			"linux": "55 48 89 E5 41 57 41 56 4C 8D 3D ? ? ? ? 41 55 41 54"
+			"windows": "48 89 5C 24 ? 44 89 44 24 ? 89 54 24 ? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ? 48 81 EC ? ? ? ? 33 DB",
+			"linux": "48 B8 ? ? ? ? ? ? ? ? 55 48 89 E5 41 57 41 56 49 89 FE 41 55 41 54 53"
 		}
 	},
 	"Offsets": {
