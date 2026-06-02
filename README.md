@@ -1,7 +1,7 @@
 # Status Modifier
 Modify `status` message the way you want & remove players you don't want to display.
 
-[![Preview](https://raw.githubusercontent.com/Cruze03/StatusModifier/refs/heads/main/.git-assets/preview.png)](https://cruzecoding.com)
+[![Preview](.git-assets/preview.png)](https://cruzecoding.com)
 
 ## Placeholders
 | Placeholder | Description | Example Output |
