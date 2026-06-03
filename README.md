@@ -1,5 +1,5 @@
 # Status Modifier
-Modify `status` message the way you want & remove players you don't want to display.
+Modify `status` message the way you want & remove players you don't want to display in player console.
 
 [![Preview](.git-assets/preview.png)](https://cruzecoding.com)
 
@@ -21,6 +21,6 @@ Modify `status` message the way you want & remove players you don't want to disp
 | `{PLAYERSCORE}` | The player's score | `14` |
 | `{PLAYERPING}` | The player's ping | `67` |
 | `{PLAYERTIME}` | The player's connection time | `45m 34s` |
-| `{STEAMID}` | The player's SteamID | `76561198012345678` |
-| `{STEAMID32}` | The player's SteamID | `STEAM_0:0:569544375` |
-| `{STEAMID3}` | The player's SteamID | `[U:1:1139088750]` |
+| `{STEAMID}` | The player's SteamID | `76561198132924835` |
+| `{STEAMID32}` | The player's SteamID | `STEAM_1:1:86329553` |
+| `{STEAMID3}` | The player's SteamID | `[U:1:172659107]` |

@@ -18,6 +18,8 @@
 #			Current time: {CURRENTTIME}
 #			Current map: {CURRENTMAP}
 —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-# userid  |    playername      |      steamid            |  time     |  ping
+// DO NOT REMOVE THE `#HEADER#`
+// Header should have more than 2 columns at all times & should be separated with '|' char.
+#HEADER## userid  |    playername      |      steamid            |   time    |  ping
 # {PLAYERUSERID}	       {PLAYERNAME}	      {STEAM32}	    {PLAYERTIME}      {PLAYERPING}
 —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

@@ -61,6 +61,8 @@ public:
     CPlayerManager()
     {
         V_memset(m_vecPlayers, 0, sizeof(m_vecPlayers));
+        m_iBotCount = 0;
+        m_iPlayerCount = 0;
     }
 
     void OnBotConnected(CPlayerSlot slot)

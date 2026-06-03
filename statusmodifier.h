@@ -65,18 +65,26 @@ void RegisterEventListeners();
 void UnregisterEventListeners();
 void PrintToChatAll(const char *msg, ...);
 uint32 GetSoundEventHash(const char *pszSoundEventName);
-std::string formatCurrentTime();
-std::string formatCurrentTime2();
+std::string FormatCurrentTime();
+std::string FormatCurrentTime2();
 void ErrorLog(const char *msg, ...);
 void LoadConfig();
 void TrimString(std::string &s);
 static void ReplaceAll(std::string &str, const std::string &from, const std::string &to);
-std::string CheckMessageVariables(const std::string &message, int slot = -1);
+struct PipeLayout
+{
+    std::vector<size_t> pipePositions;
+    std::string header;
+};
+std::string CheckMessageVariables(const std::string &message, int slot,
+                                  const PipeLayout &layout);
+PipeLayout ParseHeaderLayout(std::string_view header);
 std::string FormatShortTime(int seconds);
 bool GetPublicIP();
 
 template <typename T>
 std::string PadRight(const T &value, size_t width);
+std::vector<std::string_view> SplitString(std::string_view str, std::string_view delim);
 
 const std::string colors_text[] = {
     "{DEFAULT}",
