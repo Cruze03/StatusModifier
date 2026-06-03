@@ -24,3 +24,11 @@ Modify `status` message the way you want & remove players you don't want to disp
 | `{STEAMID}` | The player's SteamID | `76561198132924835` |
 | `{STEAMID32}` | The player's SteamID | `STEAM_1:1:86329553` |
 | `{STEAMID3}` | The player's SteamID | `[U:1:172659107]` |
+
+## Server Console Commands
+
+| Command                           | Description               |
+| --------------------------------- | ------------------------- |
+| `mm_excludeslot <slot>`       | Exclude a player from status message |
+| `mm_removeexcludeslot <slot>` | Remove exclusion of a player |
+| `mm_listexcludeslots`         | List of player slots excluded from status message |
