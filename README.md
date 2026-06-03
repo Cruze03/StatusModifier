@@ -32,3 +32,7 @@ Modify `status` message the way you want & remove players you don't want to disp
 | `mm_excludeslot <slot>`       | Exclude a player from status message |
 | `mm_removeexcludeslot <slot>` | Remove exclusion of a player |
 | `mm_listexcludeslots`         | List of player slots excluded from status message |
+
+# Credits
+- Inspiration taken from @SlynxCZ closed source plugin.
+- Code help taken from Brum Brum's open source SourceMod plugin.
