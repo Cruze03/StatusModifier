@@ -16,7 +16,6 @@
 
 #include "convar.h"
 #include "module.h"
-#include "ctimer.h"
 #include "funchook.h"
 #include "bitvec.h"
 #include "serversideclient.h"

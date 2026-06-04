@@ -437,7 +437,7 @@ std::string CheckMessageVariables(const std::string &message, int slot,
 
 	// {SERVERIP}
 	if (sMessage.find("{SERVERIP}") != std::string::npos)
-		ReplaceAll(sMessage, "{SERVERIP}", g_sServerIP.c_str());
+		ReplaceAll(sMessage, "{SERVERIP}", GetPublicIP());
 
 	// {SERVERNAME}
 	if (sMessage.find("{SERVERNAME}") != std::string::npos)

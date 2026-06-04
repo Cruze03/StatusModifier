@@ -16,7 +16,7 @@
 		"GetPublicAdr": {
 			"windows": 32,
 			"linux": 32
-		},
+		}
 	},
 	"Patches": {}
 }
