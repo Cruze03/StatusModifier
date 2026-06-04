@@ -155,13 +155,13 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
 	void *pServerSideClientVTable = libengine.GetVirtualTableByName("CServerSideClient");
 	if (!pServerSideClientVTable)
 	{
+		snprintf(error, maxlen, "Failed to find ServerSideClient vtable");
 		ErrorLog("[StatusModifier] Failed to find ServerSideClient vtable");
+		return false;
 	}
-	else
-	{
-		SH_MANUALHOOK_RECONFIGURE(SendNetMessage_t, g_GameConfig->GetOffset("SendNetMessage"), 0, 0);
-		g_iSendNetMessageId = SH_ADD_MANUALDVPHOOK(SendNetMessage_t, pServerSideClientVTable, SH_MEMBER(this, &StatusModifier::Hook_SendNetMessage), false);
-	}
+
+	SH_MANUALHOOK_RECONFIGURE(SendNetMessage_t, g_GameConfig->GetOffset("SendNetMessage"), 0, 0);
+	g_iSendNetMessageId = SH_ADD_MANUALDVPHOOK(SendNetMessage_t, pServerSideClientVTable, SH_MEMBER(this, &StatusModifier::Hook_SendNetMessage), false);
 
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
 

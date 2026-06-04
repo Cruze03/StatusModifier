@@ -36,4 +36,4 @@ Modify `status` message the way you want & remove players you don't want to disp
 # Credits
 - Inspiration taken from @SlynxCZ closed source plugin.
 - Code help taken from Brum Brum's open source SourceMod plugin.
-- Code help taken from swiftly for hooking ClientNetMessage.
+- Code help taken from SwiftlyS2 for hooking ClientNetMessage.
