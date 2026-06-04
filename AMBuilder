@@ -33,7 +33,6 @@ for sdk_target in MMSPlugin.sdk_targets:
       os.path.join('psapi.lib'),
       os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'funchook.lib'),
       os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'distorm.lib'),
-      os.path.join(sdk['path'], 'lib', 'public', 'win64', 'steam_api64.lib')
     ]
 
   binary.sources += [
@@ -41,7 +40,6 @@ for sdk_target in MMSPlugin.sdk_targets:
     'gameconfig.cpp',
     os.path.join('..', 'SchemaEntity', 'schemasystem.cpp'),
     os.path.join('..', 'SchemaEntity', 'module.cpp'),
-    os.path.join('..', 'SchemaEntity', 'ctimer.cpp'),
     os.path.join(sdk['path'], 'entity2', 'entitysystem.cpp'),
     os.path.join(sdk['path'], 'entity2', 'entityidentity.cpp'),
   ]

@@ -19,7 +19,7 @@
 #include "ctimer.h"
 #include "funchook.h"
 #include "bitvec.h"
-#include <steam/steam_gameserver.h>
+#include "serversideclient.h"
 
 #ifdef _WIN32
 #define ROOTBIN "/bin/win64/"
@@ -44,8 +44,6 @@ public:
     bool Unload(char *error, size_t maxlen);
 
     void Hook_StartupServer(const GameSessionConfiguration_t &config, ISource2WorldSession *pSession, const char *pszMapName);
-    void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
-    void Hook_GameServerSteamAPIActivated();
     void Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress, bool bFakePlayer);
     bool Hook_ClientConnect(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, bool unk1, CBufferString *pRejectReason);
     void Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid, const char *pszNetworkID);
@@ -80,7 +78,7 @@ std::string CheckMessageVariables(const std::string &message, int slot,
                                   const PipeLayout &layout);
 PipeLayout ParseHeaderLayout(std::string_view header);
 std::string FormatShortTime(int seconds);
-bool GetPublicIP();
+const char *GetPublicIP();
 
 template <typename T>
 std::string PadRight(const T &value, size_t width);

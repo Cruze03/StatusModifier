@@ -19,32 +19,24 @@
 #include "gameconfig.h"
 #include "playermanager.h"
 #include "recipientfilter.h"
-#include "serversideclient.h"
 #include "utils.h"
 
 StatusModifier g_StatusModifier;
 PLUGIN_EXPOSE(StatusModifier, g_StatusModifier);
-IVEngineServer2 *engine = nullptr;
+IVEngineServer2 *g_pEngineServer2 = nullptr;
 CGameEntitySystem *g_pEntitySystem = nullptr;
-IGameEventSystem *g_gameEventSystem = nullptr;
-ISteamGameServer *g_pGameServer = nullptr;
-CSteamGameServerAPIContext steamctx;
+IGameEventSystem *g_pGameEventSystem = nullptr;
 
 CGameConfig *g_GameConfig = nullptr;
-CPlayerManager *g_playerManager = nullptr;
-
-double g_flUniversalTime;
-float g_flLastTickedTime;
-bool g_bHasTicked;
+CPlayerManager *g_PlayerManager = nullptr;
 
 std::unordered_set<int> g_mExcludeSlots;
 
-void (*StatusFullPrintClient_t)(CNetworkGameServerBase *pBase,
-								int slot) = nullptr;
+void (*FilterMessage_t)(CServerSideClient *pClient, CNetMessage *pMessage, INetChannel *pChannel) = nullptr;
 
 using namespace DynLibUtils;
 
-funchook_t *m_StatusFullHook;
+funchook_t *m_FilterMessageHook;
 
 std::vector<std::string> g_StatusArray;
 std::string g_sServerIP;
@@ -59,7 +51,7 @@ CGameEntitySystem *GameEntitySystem()
 }
 
 // Will return null between map end & new map startup, null check if necessary!
-CGlobalVars *GetGlobals() { return engine->GetServerGlobals(); }
+CGlobalVars *GetGlobals() { return g_pEngineServer2->GetServerGlobals(); }
 
 class GameSessionConfiguration_t
 {
@@ -68,8 +60,6 @@ class GameSessionConfiguration_t
 SH_DECL_HOOK3_void(INetworkServerService, StartupServer, SH_NOATTRIB, 0,
 				   const GameSessionConfiguration_t &, ISource2WorldSession *,
 				   const char *);
-SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
-SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIActivated, SH_NOATTRIB, 0);
 SH_DECL_HOOK5_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0,
 				   CPlayerSlot, ENetworkDisconnectionReason, const char *,
 				   uint64, const char *);
@@ -80,10 +70,140 @@ SH_DECL_HOOK6(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool,
 			  CPlayerSlot, const char *, uint64, const char *, bool,
 			  CBufferString *);
 
-void FASTCALL Hook_StatusFullPrintClient(CNetworkGameServerBase *pBase,
-										 int slot)
+void Hook_FilterMessage(CServerSideClient *pClient, CNetMessage *pMessage, INetChannel *pChannel);
+
+bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
+						  size_t maxlen, bool late)
 {
-	// StatusFullPrintClient_t(pBase, slot);
+	PLUGIN_SAVEVARS();
+
+	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngineServer2, IVEngineServer2,
+						SOURCE2ENGINETOSERVER_INTERFACE_VERSION);
+	GET_V_IFACE_CURRENT(GetFileSystemFactory, g_pFullFileSystem, IFileSystem,
+						FILESYSTEM_INTERFACE_VERSION);
+	GET_V_IFACE_CURRENT(GetEngineFactory, g_pGameResourceServiceServer,
+						IGameResourceService,
+						GAMERESOURCESERVICESERVER_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pSchemaSystem, ISchemaSystem,
+					SCHEMASYSTEM_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkServerService,
+					INetworkServerService,
+					NETWORKSERVERSERVICE_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkMessages, INetworkMessages,
+					NETWORKMESSAGES_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pGameEventSystem, IGameEventSystem,
+					GAMEEVENTSYSTEM_INTERFACE_VERSION);
+	GET_V_IFACE_CURRENT(GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetServerFactory, g_pSource2GameClients, IServerGameClients,
+					SOURCE2GAMECLIENTS_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkSystem, INetworkSystem,
+					NETWORKSYSTEM_INTERFACE_VERSION);
+
+	SH_ADD_HOOK(INetworkServerService, StartupServer, g_pNetworkServerService,
+				SH_MEMBER(this, &StatusModifier::Hook_StartupServer), true);
+	SH_ADD_HOOK(IServerGameClients, ClientDisconnect, g_pSource2GameClients,
+				SH_MEMBER(this, &StatusModifier::Hook_ClientDisconnect), true);
+	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pSource2GameClients,
+				SH_MEMBER(this, &StatusModifier::Hook_OnClientConnected), false);
+	SH_ADD_HOOK(IServerGameClients, ClientConnect, g_pSource2GameClients,
+				SH_MEMBER(this, &StatusModifier::Hook_ClientConnect), false);
+
+	g_GameConfig = new CGameConfig();
+	char conf_error[255] = "";
+	if (!g_GameConfig->Init(conf_error, sizeof(conf_error)))
+	{
+		snprintf(error, maxlen, "Could not read %s: %s",
+				 g_GameConfig->GetPath().c_str(), conf_error);
+		ErrorLog(error);
+		return false;
+	}
+
+	CModule libengine(g_pEngineServer2);
+
+	const char *szSignature = g_GameConfig->GetSignature("FilterMessage");
+
+	FilterMessage_t = libengine.FindPattern(szSignature)
+						  .RCast<decltype(FilterMessage_t)>();
+	if (!FilterMessage_t)
+	{
+		snprintf(error, maxlen, "Failed to find function to get FilterMessage");
+		ErrorLog("[%s] Failed to find function to get FilterMessage",
+				 g_PLAPI->GetLogTag());
+		return false;
+	}
+
+	m_FilterMessageHook = funchook_create();
+	funchook_prepare(m_FilterMessageHook, (void **)&FilterMessage_t,
+					 (void *)Hook_FilterMessage);
+	funchook_install(m_FilterMessageHook, 0);
+	ConMsg("[StatusModifier] FilterMessage hooked successfully.\n");
+
+	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
+
+	LoadConfig();
+
+	g_SMAPI->AddListener(this, this);
+
+	g_PlayerManager = new CPlayerManager();
+
+	g_chServerStartTime = std::chrono::steady_clock::now();
+
+	if (late)
+	{
+		g_pEntitySystem = GameEntitySystem();
+		g_PlayerManager->OnLateLoad();
+	}
+
+	return true;
+}
+
+bool StatusModifier::Unload(char *error, size_t maxlen)
+{
+	ConVar_Unregister();
+
+	SH_REMOVE_HOOK(INetworkServerService, StartupServer, g_pNetworkServerService,
+				   SH_MEMBER(this, &StatusModifier::Hook_StartupServer), true);
+	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pSource2GameClients,
+				   SH_MEMBER(this, &StatusModifier::Hook_ClientDisconnect), true);
+	SH_REMOVE_HOOK(IServerGameClients, OnClientConnected, g_pSource2GameClients,
+				   SH_MEMBER(this, &StatusModifier::Hook_OnClientConnected),
+				   false);
+	SH_REMOVE_HOOK(IServerGameClients, ClientConnect, g_pSource2GameClients,
+				   SH_MEMBER(this, &StatusModifier::Hook_ClientConnect), false);
+
+	if (m_FilterMessageHook)
+		funchook_destroy(m_FilterMessageHook);
+
+	if (g_PlayerManager)
+		delete g_PlayerManager;
+
+	return true;
+}
+
+void StatusModifier::Hook_StartupServer(
+	const GameSessionConfiguration_t &config, ISource2WorldSession *pSession,
+	const char *pszMapName)
+{
+	g_pEntitySystem = GameEntitySystem();
+
+	g_mExcludeSlots.clear();
+}
+
+void FASTCALL Hook_FilterMessage(CServerSideClient *pClient, CNetMessage *pMessage, INetChannel *pChannel)
+{
+	if (!pClient || !pMessage)
+	{
+		FilterMessage_t(pClient, pMessage, pChannel);
+		return;
+	}
+
+	int msgid = pMessage->GetNetMessage()->GetNetMessageInfo()->m_MessageId;
+	int slot = pClient->GetPlayerSlot(true).Get();
+	if (msgid != clc_ServerStatus)
+	{
+		FilterMessage_t(pClient, pMessage, pChannel);
+		return;
+	}
 
 	bool playerlist = false;
 	std::string buffer;
@@ -116,211 +236,6 @@ void FASTCALL Hook_StatusFullPrintClient(CNetworkGameServerBase *pBase,
 	}
 }
 
-bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
-						  size_t maxlen, bool late)
-{
-	PLUGIN_SAVEVARS();
-
-	GET_V_IFACE_CURRENT(GetEngineFactory, engine, IVEngineServer2,
-						SOURCE2ENGINETOSERVER_INTERFACE_VERSION);
-	GET_V_IFACE_CURRENT(GetFileSystemFactory, g_pFullFileSystem, IFileSystem,
-						FILESYSTEM_INTERFACE_VERSION);
-	GET_V_IFACE_CURRENT(GetEngineFactory, g_pGameResourceServiceServer,
-						IGameResourceService,
-						GAMERESOURCESERVICESERVER_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetEngineFactory, g_pSchemaSystem, ISchemaSystem,
-					SCHEMASYSTEM_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetServerFactory, g_pSource2Server, ISource2Server,
-					SOURCE2SERVER_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkServerService,
-					INetworkServerService,
-					NETWORKSERVERSERVICE_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkMessages, INetworkMessages,
-					NETWORKMESSAGES_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetEngineFactory, g_gameEventSystem, IGameEventSystem,
-					GAMEEVENTSYSTEM_INTERFACE_VERSION);
-	GET_V_IFACE_CURRENT(GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetServerFactory, g_pSource2GameClients, IServerGameClients,
-					SOURCE2GAMECLIENTS_INTERFACE_VERSION);
-
-	SH_ADD_HOOK(INetworkServerService, StartupServer, g_pNetworkServerService,
-				SH_MEMBER(this, &StatusModifier::Hook_StartupServer), true);
-	SH_ADD_HOOK(IServerGameDLL, GameFrame, g_pSource2Server,
-				SH_MEMBER(this, &StatusModifier::Hook_GameFrame), true);
-	SH_ADD_HOOK(
-		IServerGameDLL, GameServerSteamAPIActivated, g_pSource2Server,
-		SH_MEMBER(this, &StatusModifier::Hook_GameServerSteamAPIActivated),
-		false);
-	SH_ADD_HOOK(IServerGameClients, ClientDisconnect, g_pSource2GameClients,
-				SH_MEMBER(this, &StatusModifier::Hook_ClientDisconnect), true);
-	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pSource2GameClients,
-				SH_MEMBER(this, &StatusModifier::Hook_OnClientConnected), false);
-	SH_ADD_HOOK(IServerGameClients, ClientConnect, g_pSource2GameClients,
-				SH_MEMBER(this, &StatusModifier::Hook_ClientConnect), false);
-
-	g_GameConfig = new CGameConfig();
-	char conf_error[255] = "";
-	if (!g_GameConfig->Init(conf_error, sizeof(conf_error)))
-	{
-		snprintf(error, maxlen, "Could not read %s: %s",
-				 g_GameConfig->GetPath().c_str(), conf_error);
-		ErrorLog(error);
-		return false;
-	}
-
-	CModule libengine(engine);
-
-	const char *szSignature = g_GameConfig->GetSignature("StatusCommandFull");
-
-	StatusFullPrintClient_t = libengine.FindPattern(szSignature)
-								  .RCast<decltype(StatusFullPrintClient_t)>();
-	if (!StatusFullPrintClient_t)
-	{
-		ErrorLog("[%s] Failed to find function to get StatusPrintFull of client",
-				 g_PLAPI->GetLogTag());
-		return false;
-	}
-	else
-	{
-		m_StatusFullHook = funchook_create();
-		funchook_prepare(m_StatusFullHook, (void **)&StatusFullPrintClient_t,
-						 (void *)Hook_StatusFullPrintClient);
-		funchook_install(m_StatusFullHook, 0);
-		ConMsg("[StatusModifier] StatusPrintFull of client hooked successfully.\n");
-	}
-
-	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
-
-	LoadConfig();
-
-	g_SMAPI->AddListener(this, this);
-
-	g_playerManager = new CPlayerManager();
-
-	g_chServerStartTime = std::chrono::steady_clock::now();
-
-	if (late)
-	{
-		g_pEntitySystem = GameEntitySystem();
-		g_playerManager->OnLateLoad();
-		Hook_GameServerSteamAPIActivated();
-	}
-
-	return true;
-}
-
-bool StatusModifier::Unload(char *error, size_t maxlen)
-{
-	ConVar_Unregister();
-
-	SH_REMOVE_HOOK(INetworkServerService, StartupServer, g_pNetworkServerService,
-				   SH_MEMBER(this, &StatusModifier::Hook_StartupServer), true);
-	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pSource2Server,
-				   SH_MEMBER(this, &StatusModifier::Hook_GameFrame), true);
-	SH_REMOVE_HOOK(
-		IServerGameDLL, GameServerSteamAPIActivated, g_pSource2Server,
-		SH_MEMBER(this, &StatusModifier::Hook_GameServerSteamAPIActivated),
-		false);
-	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pSource2GameClients,
-				   SH_MEMBER(this, &StatusModifier::Hook_ClientDisconnect), true);
-	SH_REMOVE_HOOK(IServerGameClients, OnClientConnected, g_pSource2GameClients,
-				   SH_MEMBER(this, &StatusModifier::Hook_OnClientConnected),
-				   false);
-	SH_REMOVE_HOOK(IServerGameClients, ClientConnect, g_pSource2GameClients,
-				   SH_MEMBER(this, &StatusModifier::Hook_ClientConnect), false);
-
-	if (m_StatusFullHook)
-		funchook_destroy(m_StatusFullHook);
-
-	RemoveTimers();
-
-	if (g_playerManager)
-		delete g_playerManager;
-
-	return true;
-}
-
-void StatusModifier::Hook_StartupServer(
-	const GameSessionConfiguration_t &config, ISource2WorldSession *pSession,
-	const char *pszMapName)
-{
-	g_pEntitySystem = GameEntitySystem();
-	g_bHasTicked = false;
-
-	g_mExcludeSlots.clear();
-}
-
-void StatusModifier::Hook_GameFrame(bool simulating, bool bFirstTick,
-									bool bLastTick)
-{
-	/**
-	 * simulating:
-	 * ***********
-	 * true  | game is ticking
-	 * false | game is not ticking
-	 */
-
-	VPROF_BUDGET("StatusModifier::Hook_GameFramePost", "StatusModifierPerFrame");
-
-	if (!GetGlobals())
-		return;
-
-	if (simulating && g_bHasTicked)
-	{
-		g_flUniversalTime += GetGlobals()->curtime - g_flLastTickedTime;
-	}
-
-	g_flLastTickedTime = GetGlobals()->curtime;
-	g_bHasTicked = true;
-
-	for (int i = g_timers.Tail(); i != g_timers.InvalidIndex();)
-	{
-		auto timer = g_timers[i];
-
-		int prevIndex = i;
-		i = g_timers.Previous(i);
-
-		if (timer->m_flLastExecute == -1)
-			timer->m_flLastExecute = g_flUniversalTime;
-
-		// Timer execute
-		if (timer->m_flLastExecute + timer->m_flInterval <= g_flUniversalTime)
-		{
-			if (!timer->Execute())
-			{
-				delete timer;
-				g_timers.Remove(prevIndex);
-			}
-			else
-			{
-				timer->m_flLastExecute = g_flUniversalTime;
-			}
-		}
-	}
-}
-
-void StatusModifier::Hook_GameServerSteamAPIActivated()
-{
-	steamctx.Init();
-
-	if (!GetPublicIP())
-	{
-		g_sServerIP = "Unknown";
-		// clang-format off
-		new CTimer(5.0f, []()
-		{
-			if(GetPublicIP())
-			{
-				return -1.0f;
-			}
-			return 5.0f;
-		});
-		// clang-format on
-	}
-
-	RETURN_META(MRES_IGNORED);
-}
-
 void StatusModifier::Hook_OnClientConnected(CPlayerSlot slot,
 											const char *pszName, uint64 xuid,
 											const char *pszNetworkID,
@@ -332,7 +247,7 @@ void StatusModifier::Hook_OnClientConnected(CPlayerSlot slot,
 
 	// Ideally we would use CServerSideClient::IsHLTV().. but it doesn't work :(
 	if (bFakePlayer && V_strcmp(pszName, pszTvName))
-		g_playerManager->OnBotConnected(slot);
+		g_PlayerManager->OnBotConnected(slot);
 }
 
 bool StatusModifier::Hook_ClientConnect(CPlayerSlot slot, const char *pszName,
@@ -341,7 +256,7 @@ bool StatusModifier::Hook_ClientConnect(CPlayerSlot slot, const char *pszName,
 										CBufferString *pRejectReason)
 {
 	// Player is banned
-	if (!g_playerManager->OnClientConnected(slot, xuid, pszNetworkID))
+	if (!g_PlayerManager->OnClientConnected(slot, xuid, pszNetworkID))
 		RETURN_META_VALUE(MRES_SUPERCEDE, false);
 
 	RETURN_META_VALUE(MRES_IGNORED, true);
@@ -352,7 +267,7 @@ void StatusModifier::Hook_ClientDisconnect(CPlayerSlot slot,
 										   const char *pszName, uint64 xuid,
 										   const char *pszNetworkID)
 {
-	g_playerManager->OnClientDisconnect(slot);
+	g_PlayerManager->OnClientDisconnect(slot);
 }
 
 void LoadConfig()
@@ -548,7 +463,7 @@ std::string CheckMessageVariables(const std::string &message, int slot,
 	// {PLAYERCOUNT}
 	if (sMessage.find("{PLAYERCOUNT}") != std::string::npos)
 		ReplaceAll(sMessage, "{PLAYERCOUNT}",
-				   std::to_string(g_playerManager->GetPlayerCount()));
+				   std::to_string(g_PlayerManager->GetPlayerCount()));
 
 	// {MAXPLAYERS}
 	if (sMessage.find("{MAXPLAYERS}") != std::string::npos)
@@ -567,7 +482,7 @@ std::string CheckMessageVariables(const std::string &message, int slot,
 
 	if (slot > -1)
 	{
-		Player *pPlayer = g_playerManager->GetPlayer(slot);
+		Player *pPlayer = g_PlayerManager->GetPlayer(slot);
 
 		if (!pPlayer || !pPlayer->IsConnected())
 			return "";
@@ -598,7 +513,7 @@ std::string CheckMessageVariables(const std::string &message, int slot,
 		int column = 0;
 
 		if (sMessage.find("{PLAYERUSERID}") != std::string::npos)
-			set(column++, std::to_string(engine->GetPlayerUserId(slot).Get()));
+			set(column++, std::to_string(g_pEngineServer2->GetPlayerUserId(slot).Get()));
 
 		if (sMessage.find("{PLAYERNAME}") != std::string::npos)
 		{
@@ -635,7 +550,7 @@ std::string CheckMessageVariables(const std::string &message, int slot,
 
 		if (sMessage.find("{PLAYERTIME}") != std::string::npos && GetGlobals())
 		{
-			INetChannelInfo *pInfo = engine->GetPlayerNetInfo(slot);
+			INetChannelInfo *pInfo = g_pEngineServer2->GetPlayerNetInfo(slot);
 			set(column++, pInfo ? FormatShortTime((int)pInfo->GetTimeConnected()) : "0s");
 		}
 

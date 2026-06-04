@@ -160,4 +160,4 @@ private:
     int m_iPlayerCount;
 };
 
-extern CPlayerManager *g_playerManager;
+extern CPlayerManager *g_PlayerManager;

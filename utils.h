@@ -1,9 +1,9 @@
 #pragma once
 
-extern IGameEventSystem *g_gameEventSystem;
+extern IGameEventSystem *g_pGameEventSystem;
 extern ISmmAPI *g_SMAPI;
 
-extern ISteamGameServer *g_pGameServer;
+extern CGameConfig *g_GameConfig;
 extern std::string g_sServerIP;
 
 #define HUD_PRINTCONSOLE 2
@@ -27,7 +27,7 @@ void ClientPrint(CPlayerSlot slot, int hud_dest, const char *msg, ...)
 
     CSingleRecipientFilter filter(slot);
 
-    g_gameEventSystem->PostEventAbstract(-1, false, &filter, pNetMsg, data, 0);
+    g_pGameEventSystem->PostEventAbstract(-1, false, &filter, pNetMsg, data, 0);
 
     delete data;
 }
@@ -166,37 +166,29 @@ void ErrorLog(const char *msg, ...)
     }
 }
 
-bool GetPublicIP()
+bool IsIPInvalid(unsigned char ip[4])
 {
-    g_pGameServer = SteamGameServer();
+    return ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0;
+}
 
-    if (g_pGameServer)
+using GetPublicAdr_fn = netadr_t *(__thiscall *)(void *);
+const char *GetPublicIP()
+{
+    if (!g_sServerIP.empty())
+        return g_sServerIP.c_str();
+
+    netadr_t *pAddr = vmt::GetVMethod<GetPublicAdr_fn>(g_GameConfig->GetOffset("GetPublicAdr"), g_pNetworkSystem)(g_pNetworkSystem);
+
+    static ConVarRefAbstract port("hostport");
+    int hostport = port.GetInt();
+
+    if (!pAddr || IsIPInvalid(pAddr->ip) || hostport == 0)
     {
-        SteamIPAddress_t sAddr = g_pGameServer->GetPublicIP();
-
-        int hostport = CommandLine()->ParmValue("-port", 0);
-
-        if (!sAddr.IsSet() || hostport == 0)
-        {
-            ConMsg("Server IP / port not set. Retrying...\n");
-            return false;
-        }
-        uint32_t ipaddr = sAddr.m_unIPv4;
-        uint32_t ip[4];
-
-        for (char iter = 3; iter > -1; --iter)
-        {
-            ip[(~iter) & 0x03] = (static_cast<unsigned char>(ipaddr >> (iter * 8)) &
-                                  0xFF); /* I hate you; SteamTools. */
-        }
-        char buf[64];
-        sprintf(buf, "%i.%i.%i.%i:%i", ip[0], ip[1], ip[2], ip[3], hostport);
-
-        g_sServerIP = buf;
-
-        // ConMsg("Server IP: %s\n", buf);
-        return true;
+        return "Unknown";
     }
-    ConMsg("ISteamGameServer not valid. Retrying...\n");
-    return false;
+
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%d.%d.%d.%d:%d", pAddr->ip[0], pAddr->ip[1], pAddr->ip[2], pAddr->ip[3], hostport);
+    g_sServerIP = buf;
+    return g_sServerIP.c_str();
 }

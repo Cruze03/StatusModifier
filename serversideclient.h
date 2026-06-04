@@ -14,6 +14,7 @@
 #include <tier1/utlstring.h>
 
 #include <network_connection.pb.h>
+#include "protobuf/generated/netmessages.pb.h"
 
 class INetMessage;
 class CNetworkGameServerBase;
@@ -89,7 +90,7 @@ public:
     virtual bool IsFakeClient() = 0;
     virtual bool IsHumanPlayer() = 0;
 
-    CPlayerSlot GetPlayerSlot() const { return m_nClientSlot; }
+    CPlayerSlot GetPlayerSlot(bool offset = false) const { return offset ? CPlayerSlot(*(int *)&m_Name) : m_nClientSlot; }
     CPlayerUserId GetUserID() const { return m_UserID; }
     CEntityIndex GetEntityIndex() const { return m_nEntityIndex; }
     CSteamID GetClientSteamID() const { return m_SteamID; }
