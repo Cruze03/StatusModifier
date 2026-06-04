@@ -1,17 +1,18 @@
 {
-	"Signatures": {
-		// Search "NOTE: Printing secret stuff because non-public Steam universe.\n"
-		"StatusCommandFull": {
-			"library": "engine",
-			"windows": "48 89 5C 24 ? 44 89 44 24 ? 89 54 24 ? 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 ? 48 81 EC ? ? ? ? 33 DB",
-			"linux": "48 B8 ? ? ? ? ? ? ? ? 55 48 89 E5 41 57 41 56 49 89 FE 41 55 41 54 53"
-		}
-	},
 	"Offsets": {
 		"GameEntitySystem": {
 			"windows": 88,
 			"linux": 80
+		},
+		"GetPublicAdr": {
+			"windows": 32,
+			"linux": 32
+		},
+		"SendNetMessage": {
+			"windows": 15,
+			"linux": 16
 		}
 	},
+	"Signatures": {},
 	"Patches": {}
 }

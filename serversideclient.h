@@ -14,6 +14,7 @@
 #include <tier1/utlstring.h>
 
 #include <network_connection.pb.h>
+#include "protobuf/generated/netmessages.pb.h"
 
 class INetMessage;
 class CNetworkGameServerBase;
