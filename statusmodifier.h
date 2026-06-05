@@ -16,7 +16,9 @@
 
 #include "convar.h"
 #include "module.h"
+#include "funchook.h"
 #include "bitvec.h"
+#include "serversideclient.h"
 
 #ifdef _WIN32
 #define ROOTBIN "/bin/win64/"
@@ -41,7 +43,6 @@ public:
     bool Unload(char *error, size_t maxlen);
 
     void Hook_StartupServer(const GameSessionConfiguration_t &config, ISource2WorldSession *pSession, const char *pszMapName);
-    void Hook_SendNetMessage(CNetMessage *pData, NetChannelBufType_t bufType);
     void Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress, bool bFakePlayer);
     bool Hook_ClientConnect(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, bool unk1, CBufferString *pRejectReason);
     void Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid, const char *pszNetworkID);

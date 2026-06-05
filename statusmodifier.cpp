@@ -7,11 +7,9 @@
 #include <inetchannel.h>
 #include <networksystem/inetworkmessages.h>
 #include <networksystem/inetworkserializer.h>
-#include <networksystem/inetworksystem.h>
 
 #include "protobuf/generated/cstrike15_usermessages.pb.h"
 #include "protobuf/generated/usermessages.pb.h"
-#include "protobuf/generated/netmessages.pb.h"
 
 #include <fstream>
 #include <iomanip>
@@ -21,7 +19,6 @@
 #include "gameconfig.h"
 #include "playermanager.h"
 #include "recipientfilter.h"
-#include "serversideclient.h"
 #include "utils.h"
 
 StatusModifier g_StatusModifier;
@@ -29,13 +26,17 @@ PLUGIN_EXPOSE(StatusModifier, g_StatusModifier);
 IVEngineServer2 *g_pEngineServer2 = nullptr;
 CGameEntitySystem *g_pEntitySystem = nullptr;
 IGameEventSystem *g_pGameEventSystem = nullptr;
-int g_iSendNetMessageId = -1;
 
 CGameConfig *g_GameConfig = nullptr;
 CPlayerManager *g_PlayerManager = nullptr;
 
 std::unordered_set<int> g_mExcludeSlots;
+
+void (*FilterMessage_t)(void *pClient, CNetMessage *pMessage, INetChannel *pChannel) = nullptr;
+
 using namespace DynLibUtils;
+
+funchook_t *m_FilterMessageHook;
 
 std::vector<std::string> g_StatusArray;
 std::string g_sServerIP;
@@ -56,8 +57,6 @@ class GameSessionConfiguration_t
 {
 };
 
-SH_DECL_MANUALHOOK2_void(SendNetMessage_t, 0, 0, 0, CNetMessage *, NetChannelBufType_t);
-
 SH_DECL_HOOK3_void(INetworkServerService, StartupServer, SH_NOATTRIB, 0,
 				   const GameSessionConfiguration_t &, ISource2WorldSession *,
 				   const char *);
@@ -71,38 +70,7 @@ SH_DECL_HOOK6(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool,
 			  CPlayerSlot, const char *, uint64, const char *, bool,
 			  CBufferString *);
 
-void ShowCustomStatusMessage(int slot)
-{
-	bool playerlist = false;
-	std::string buffer;
-	for (const std::string &message : g_StatusArray)
-	{
-		if (message.rfind("#HEADER#", 0) == 0)
-		{
-			ClientPrint(slot, HUD_PRINTCONSOLE, message.c_str() + 8);
-			continue;
-		}
-
-		if (!playerlist && message.find("{PLAYER") != std::string::npos && message.find("{PLAYERC") == std::string::npos)
-		{
-			for (int i = 0; i < MAXPLAYERS; i++)
-			{
-				if (g_mExcludeSlots.find(i) != g_mExcludeSlots.end())
-					continue;
-
-				buffer = CheckMessageVariables(message, i, g_HeaderLayout);
-				if (buffer.length() > 0)
-					ClientPrint(slot, HUD_PRINTCONSOLE, buffer.c_str());
-			}
-			playerlist = true;
-			continue;
-		}
-
-		buffer = CheckMessageVariables(message, -1, g_HeaderLayout);
-		if (buffer.length() > 0)
-			ClientPrint(slot, HUD_PRINTCONSOLE, buffer.c_str());
-	}
-}
+void Hook_FilterMessage(void *pClient, CNetMessage *pMessage, INetChannel *pChannel);
 
 bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
 						  size_t maxlen, bool late)
@@ -152,16 +120,23 @@ bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
 
 	CModule libengine(g_pEngineServer2);
 
-	void *pServerSideClientVTable = libengine.GetVirtualTableByName("CServerSideClient");
-	if (!pServerSideClientVTable)
+	const char *szSignature = g_GameConfig->GetSignature("FilterMessage");
+
+	FilterMessage_t = libengine.FindPattern(szSignature)
+						  .RCast<decltype(FilterMessage_t)>();
+	if (!FilterMessage_t)
 	{
-		snprintf(error, maxlen, "Failed to find ServerSideClient vtable");
-		ErrorLog("[StatusModifier] Failed to find ServerSideClient vtable");
+		snprintf(error, maxlen, "Failed to find function to get FilterMessage");
+		ErrorLog("[%s] Failed to find function to get FilterMessage",
+				 g_PLAPI->GetLogTag());
 		return false;
 	}
 
-	SH_MANUALHOOK_RECONFIGURE(SendNetMessage_t, g_GameConfig->GetOffset("SendNetMessage"), 0, 0);
-	g_iSendNetMessageId = SH_ADD_MANUALDVPHOOK(SendNetMessage_t, pServerSideClientVTable, SH_MEMBER(this, &StatusModifier::Hook_SendNetMessage), false);
+	m_FilterMessageHook = funchook_create();
+	funchook_prepare(m_FilterMessageHook, (void **)&FilterMessage_t,
+					 (void *)Hook_FilterMessage);
+	funchook_install(m_FilterMessageHook, 0);
+	ConMsg("[StatusModifier] FilterMessage hooked successfully.\n");
 
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
 
@@ -196,7 +171,8 @@ bool StatusModifier::Unload(char *error, size_t maxlen)
 	SH_REMOVE_HOOK(IServerGameClients, ClientConnect, g_pSource2GameClients,
 				   SH_MEMBER(this, &StatusModifier::Hook_ClientConnect), false);
 
-	SH_REMOVE_HOOK_ID(g_iSendNetMessageId);
+	if (m_FilterMessageHook)
+		funchook_destroy(m_FilterMessageHook);
 
 	if (g_PlayerManager)
 		delete g_PlayerManager;
@@ -211,6 +187,55 @@ void StatusModifier::Hook_StartupServer(
 	g_pEntitySystem = GameEntitySystem();
 
 	g_mExcludeSlots.clear();
+}
+
+void FASTCALL Hook_FilterMessage(void *pClient, CNetMessage *pMessage, INetChannel *pChannel)
+{
+	if (!pClient || !pMessage)
+	{
+		FilterMessage_t(pClient, pMessage, pChannel);
+		return;
+	}
+
+	int msgid = pMessage->GetNetMessage()->GetNetMessageInfo()->m_MessageId;
+	static int playerIndex = g_GameConfig->GetOffset("CServerSideClientBase::m_nClientSlot") - WIN_LINUX(8, 48);
+	int slot = *(int *)((uintptr_t)pClient + playerIndex);
+
+	if (msgid != clc_ServerStatus)
+	{
+		FilterMessage_t(pClient, pMessage, pChannel);
+		return;
+	}
+
+	bool playerlist = false;
+	std::string buffer;
+	for (const std::string &message : g_StatusArray)
+	{
+		if (message.rfind("#HEADER#", 0) == 0)
+		{
+			ClientPrint(slot, HUD_PRINTCONSOLE, message.c_str() + 8);
+			continue;
+		}
+
+		if (!playerlist && message.find("{PLAYER") != std::string::npos && message.find("{PLAYERC") == std::string::npos)
+		{
+			for (int i = 0; i < MAXPLAYERS; i++)
+			{
+				if (g_mExcludeSlots.find(i) != g_mExcludeSlots.end())
+					continue;
+
+				buffer = CheckMessageVariables(message, i, g_HeaderLayout);
+				if (buffer.length() > 0)
+					ClientPrint(slot, HUD_PRINTCONSOLE, buffer.c_str());
+			}
+			playerlist = true;
+			continue;
+		}
+
+		buffer = CheckMessageVariables(message, -1, g_HeaderLayout);
+		if (buffer.length() > 0)
+			ClientPrint(slot, HUD_PRINTCONSOLE, buffer.c_str());
+	}
 }
 
 void StatusModifier::Hook_OnClientConnected(CPlayerSlot slot,
@@ -245,22 +270,6 @@ void StatusModifier::Hook_ClientDisconnect(CPlayerSlot slot,
 										   const char *pszNetworkID)
 {
 	g_PlayerManager->OnClientDisconnect(slot);
-}
-
-void StatusModifier::Hook_SendNetMessage(CNetMessage *pData, NetChannelBufType_t bufType)
-{
-	CServerSideClient *pClient = META_IFACEPTR(CServerSideClient);
-	if (!pClient || !pData)
-		RETURN_META(MRES_IGNORED);
-
-	int msgid = pData->GetNetMessage()->GetNetMessageInfo()->m_MessageId;
-	// ConMsg("%d called messageId: %d\n", pClient->GetPlayerSlot().Get(), msgid);
-	if (msgid == svc_Print)
-	{
-		ShowCustomStatusMessage(pClient->GetPlayerSlot().Get());
-		RETURN_META(MRES_SUPERCEDE);
-	}
-	RETURN_META(MRES_IGNORED);
 }
 
 void LoadConfig()
