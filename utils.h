@@ -8,6 +8,12 @@ extern std::string g_sServerIP;
 
 #define HUD_PRINTCONSOLE 2
 
+#ifdef _WIN32
+#define WIN_LINUX(win, linux) win
+#else
+#define WIN_LINUX(win, linux) linux
+#endif
+
 void ClientPrint(CPlayerSlot slot, int hud_dest, const char *msg, ...)
 {
     va_list args;

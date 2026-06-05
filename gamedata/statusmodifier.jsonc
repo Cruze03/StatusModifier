@@ -16,6 +16,10 @@
 		"GetPublicAdr": {
 			"windows": 32,
 			"linux": 32
+		},
+		"CServerSideClientBase::m_nClientSlot": {
+			"windows": 72,
+			"linux": 72
 		}
 	},
 	"Patches": {}

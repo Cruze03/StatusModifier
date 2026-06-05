@@ -32,7 +32,7 @@ CPlayerManager *g_PlayerManager = nullptr;
 
 std::unordered_set<int> g_mExcludeSlots;
 
-void (*FilterMessage_t)(CServerSideClient *pClient, CNetMessage *pMessage, INetChannel *pChannel) = nullptr;
+void (*FilterMessage_t)(void *pClient, CNetMessage *pMessage, INetChannel *pChannel) = nullptr;
 
 using namespace DynLibUtils;
 
@@ -70,7 +70,7 @@ SH_DECL_HOOK6(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool,
 			  CPlayerSlot, const char *, uint64, const char *, bool,
 			  CBufferString *);
 
-void Hook_FilterMessage(CServerSideClient *pClient, CNetMessage *pMessage, INetChannel *pChannel);
+void Hook_FilterMessage(void *pClient, CNetMessage *pMessage, INetChannel *pChannel);
 
 bool StatusModifier::Load(PluginId id, ISmmAPI *ismm, char *error,
 						  size_t maxlen, bool late)
@@ -189,7 +189,7 @@ void StatusModifier::Hook_StartupServer(
 	g_mExcludeSlots.clear();
 }
 
-void FASTCALL Hook_FilterMessage(CServerSideClient *pClient, CNetMessage *pMessage, INetChannel *pChannel)
+void FASTCALL Hook_FilterMessage(void *pClient, CNetMessage *pMessage, INetChannel *pChannel)
 {
 	if (!pClient || !pMessage)
 	{
@@ -198,7 +198,9 @@ void FASTCALL Hook_FilterMessage(CServerSideClient *pClient, CNetMessage *pMessa
 	}
 
 	int msgid = pMessage->GetNetMessage()->GetNetMessageInfo()->m_MessageId;
-	int slot = pClient->GetPlayerSlot(true).Get();
+	static int playerIndex = g_GameConfig->GetOffset("CServerSideClientBase::m_nClientSlot") - WIN_LINUX(8, 48);
+	int slot = *(int *)((uintptr_t)pClient + playerIndex);
+
 	if (msgid != clc_ServerStatus)
 	{
 		FilterMessage_t(pClient, pMessage, pChannel);
