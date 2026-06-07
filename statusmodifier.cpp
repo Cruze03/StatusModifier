@@ -559,6 +559,9 @@ std::string CheckMessageVariables(const std::string &message, int slot,
 		if (sMessage.find("{PLAYERPING}") != std::string::npos)
 			set(column++, std::to_string(pController->m_iPing()));
 
+		if (sMessage.find("{PLAYERSCORE}") != std::string::npos)
+			set(column++, std::to_string(pController->m_iScore()));
+
 		sMessage = BuildAlignedRow("# ", values, layout);
 	}
 
