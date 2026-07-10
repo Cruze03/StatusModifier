@@ -10,6 +10,7 @@ class Player
 public:
     Player(CPlayerSlot slot, bool m_bFakeClient = false) : m_slot(slot), m_bFakeClient(m_bFakeClient)
     {
+        m_bClientHooked = false;
     }
 
     bool IsFakeClient() { return m_bFakeClient; }
@@ -42,16 +43,19 @@ public:
     {
         return CCSPlayerController::FromSlot(m_slot.Get());
     }
+    bool GetHooked() { return m_bClientHooked; }
 
     void SetIpAddress(std::string strIp) { m_strIp = strIp; }
     void SetConnected() { m_bConnected = true; }
     void SetSteamId(const CSteamID *steamID) { m_SteamID = steamID; }
+    void SetHooked(bool status) { m_bClientHooked = status; }
 
 private:
     bool m_bConnected;
     const CSteamID *m_SteamID;
     CPlayerSlot m_slot;
     bool m_bFakeClient;
+    bool m_bClientHooked;
     std::string m_strIp;
 };
 

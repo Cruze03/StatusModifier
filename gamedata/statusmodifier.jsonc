@@ -1,13 +1,5 @@
 {
-	"Signatures": {
-		// Find string 'Client %d(%s) tried to send a RebroadcastSourceId msg.' which is in
-		// a logging call. On linux search for the one which is being used in CServerSideClient.
-		"FilterMessage": {
-			"library": "engine",
-			"windows": "40 53 48 83 EC ? 48 8B 02 48 8B D9 48 8B CA",
-			"linux": "55 48 89 E5 53 48 89 FB 48 89 F7 48 83 EC ? 48 8B 06 FF 50 ? 48 89 C2 31 C0 48 39 15 ? ? ? ? 74 ? 48 8B 5D ? C9 C3 0F 1F 80 ? ? ? ? 8B 3D ? ? ? ? BE ? ? ? ? E8 ? ? ? ? 84 C0 74 ? 48 8B 43 ? 4C 8D 05 ? ? ? ? BE ? ? ? ? 0F B7 4B"
-		}
-	},
+	"Signatures": {},
 	"Offsets": {
 		"GameEntitySystem": {
 			"windows": 88,
@@ -20,6 +12,10 @@
 		"CServerSideClientBase::m_nClientSlot": {
 			"windows": 72,
 			"linux": 72
+		},
+		"CNetworkGameServer::m_Clients": {
+			"windows": 584,
+			"linux": 584
 		}
 	},
 	"Patches": {}

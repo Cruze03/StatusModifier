@@ -16,7 +16,6 @@
 
 #include "convar.h"
 #include "module.h"
-#include "funchook.h"
 #include "bitvec.h"
 #include "serversideclient.h"
 
@@ -46,6 +45,11 @@ public:
     void Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress, bool bFakePlayer);
     bool Hook_ClientConnect(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, bool unk1, CBufferString *pRejectReason);
     void Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid, const char *pszNetworkID);
+
+    void HookClient(int slot);
+    void UnhookClient(int slot);
+    void HookAllClients();
+    void UnhookAllClients();
 
 public:
     const char *GetAuthor() { return PLUGIN_AUTHOR; }

@@ -16,6 +16,8 @@
 #include <network_connection.pb.h>
 #include "protobuf/generated/netmessages.pb.h"
 
+#include "netmessages.h"
+
 class INetMessage;
 class CNetworkGameServerBase;
 class CNetworkGameServer;
@@ -105,6 +107,17 @@ public:
     bool IsActive() const { return m_nSignonState == SIGNONSTATE_FULL; }
     int GetSignonState() const { return m_nSignonState; }
     bool IsHLTV() const { return m_bIsHLTV; }
+
+     // Is an actual human player or splitscreen player (not a bot and not a HLTV slot)
+    virtual bool             IsHearingClient(CPlayerSlot nSlot) const { return false; }
+    virtual bool             IsProximityHearingClient() const = 0;
+    virtual bool             IsLowViolenceClient() const { return false; }
+
+    virtual bool             IsSplitScreenUser() const { return m_bSplitScreenUser; }
+
+public: // Message Handlers
+    virtual bool             ProcessTick(const CNETMsg_Tick& msg) = 0;
+    virtual bool             ProcessStringCmd(const CNETMsg_StringCmd_t& msg) = 0;
 
 public:
     CUtlString m_UserIDString;
