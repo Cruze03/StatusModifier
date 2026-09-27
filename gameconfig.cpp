@@ -1,14 +1,16 @@
 #include "gameconfig.h"
-
+#include "khook.hpp"
 #undef snprintf
 #include "vendor/nlohmann/json.hpp"
 
 #include <cctype>
 #include <fstream>
 
-bool CGameConfig::Init(char *conf_error, int conf_error_size)
+bool CGameConfig::Init(char* conf_error, int conf_error_size)
 {
-    const char *pszGamedataPath = "addons/statusmodifier/gamedata/statusmodifier.jsonc";
+    InitModules();
+
+    const char* pszGamedataPath = "addons/statusmodifier/gamedata/statusmodifier.jsonc";
     char szPath[MAX_PATH];
     V_snprintf(szPath, sizeof(szPath), "%s%s%s", Plat_GetGameDirectory(), "/csgo/", pszGamedataPath);
     std::ifstream gamedataFile(szPath);
@@ -28,12 +30,12 @@ bool CGameConfig::Init(char *conf_error, int conf_error_size)
     }
 
 #if defined _LINUX
-    const char *platform = "linux";
+    const char* platform = "linux";
 #else
-    const char *platform = "windows";
+    const char* platform = "windows";
 #endif
 
-    for (auto &[strSection, jsonSection] : jsonGamedata.items())
+    for (auto& [strSection, jsonSection] : jsonGamedata.items())
     {
         if (!jsonSection.is_object())
         {
@@ -41,7 +43,7 @@ bool CGameConfig::Init(char *conf_error, int conf_error_size)
             return false;
         }
 
-        for (auto &[strEntry, jsonEntry] : jsonSection.items())
+        for (auto& [strEntry, jsonEntry] : jsonSection.items())
         {
             if (!jsonEntry.is_object())
             {
@@ -52,8 +54,7 @@ bool CGameConfig::Init(char *conf_error, int conf_error_size)
             if (strSection == "Offsets")
             {
                 const auto platformOffset = jsonEntry.find(platform);
-                if (platformOffset == jsonEntry.end())
-                    continue;
+                if (platformOffset == jsonEntry.end()) continue;
 
                 if (!platformOffset->is_number_integer())
                 {
@@ -75,8 +76,7 @@ bool CGameConfig::Init(char *conf_error, int conf_error_size)
                 m_umLibraries[strEntry] = library->get<std::string>();
 
                 const auto platformValue = jsonEntry.find(platform);
-                if (platformValue == jsonEntry.end())
-                    continue;
+                if (platformValue == jsonEntry.end()) continue;
 
                 if (!platformValue->is_string())
                 {
@@ -89,8 +89,7 @@ bool CGameConfig::Init(char *conf_error, int conf_error_size)
             else if (strSection == "Patches")
             {
                 const auto platformValue = jsonEntry.find(platform);
-                if (platformValue == jsonEntry.end())
-                    continue;
+                if (platformValue == jsonEntry.end()) continue;
 
                 if (!platformValue->is_string())
                 {
@@ -108,54 +107,197 @@ bool CGameConfig::Init(char *conf_error, int conf_error_size)
 
 const std::string CGameConfig::GetPath() { return m_szPath; }
 
-const char *CGameConfig::GetSignature(const std::string &name)
+const char* CGameConfig::GetSignature(const std::string& name)
 {
     auto it = m_umSignatures.find(name);
-    if (it == m_umSignatures.end())
-    {
-        return nullptr;
-    }
+    if (it == m_umSignatures.end()) return nullptr;
     return it->second.c_str();
 }
 
-const char *CGameConfig::GetPatch(const std::string &name)
+const char* CGameConfig::GetPatch(const std::string& name)
 {
     auto it = m_umPatches.find(name);
-    if (it == m_umPatches.end())
-    {
-        return nullptr;
-    }
+    if (it == m_umPatches.end()) return nullptr;
     return it->second.c_str();
 }
 
-int CGameConfig::GetOffset(const std::string &name)
+int CGameConfig::GetOffset(const std::string& name)
 {
     auto it = m_umOffsets.find(name);
-    if (it == m_umOffsets.end())
-    {
-        return -1;
-    }
+    if (it == m_umOffsets.end()) return -1;
     return it->second;
 }
 
-const char *CGameConfig::GetLibrary(const std::string &name)
+const char* CGameConfig::GetLibrary(const std::string& name)
 {
     auto it = m_umLibraries.find(name);
-    if (it == m_umLibraries.end())
-    {
-        return nullptr;
-    }
+    if (it == m_umLibraries.end()) return nullptr;
     return it->second.c_str();
 }
 
-std::string CGameConfig::GetDirectoryName(const std::string &directoryPathInput)
+CModule** CGameConfig::GetModule(const char* name)
 {
-    std::string directoryPath = std::string(directoryPathInput);
+    const char* library = this->GetLibrary(name);
+    if (!library) return nullptr;
 
-    size_t found = std::string(directoryPath).find_last_of("/\\");
-    if (found != std::string::npos)
+    if (strcmp(library, "engine") == 0) return &modules::engine;
+    else if (strcmp(library, "server") == 0)
+        return &modules::server;
+    else if (strcmp(library, "client") == 0)
+        return &modules::client;
+    else if (strcmp(library, "vscript") == 0)
+        return &modules::vscript;
+    else if (strcmp(library, "tier0") == 0)
+        return &modules::tier0;
+    else if (strcmp(library, "networksystem") == 0)
+        return &modules::networksystem;
+    else if (strcmp(library, "matchmaking") == 0)
+        return &modules::matchmaking;
+    else if (strcmp(library, "worldrenderer") == 0)
+        return &modules::worldrenderer;
+#ifdef _WIN32
+    else if (strcmp(library, "hammer") == 0)
+        return &modules::hammer;
+#endif
+    return nullptr;
+}
+
+bool CGameConfig::IsSymbol(const char* name)
+{
+    const char* sigOrSymbol = this->GetSignature(name);
+    if (!sigOrSymbol || strlen(sigOrSymbol) <= 0)
     {
-        return std::string(directoryPath, found + 1);
+        ErrorLog("Missing signature or symbol\n", name);
+        return false;
     }
-    return "";
+    return sigOrSymbol[0] == '@';
+}
+
+const char* CGameConfig::GetSymbol(const char* name)
+{
+    const char* symbol = this->GetSignature(name);
+
+    if (!symbol || strlen(symbol) <= 1)
+    {
+        ErrorLog("Missing symbol\n", name);
+        return nullptr;
+    }
+    return symbol + 1;
+}
+
+void* CGameConfig::ResolveSignature(const char* name)
+{
+    CModule** module = this->GetModule(name);
+    if (!module || !(*module))
+    {
+        ErrorLog("Invalid Module %s\n", name);
+        return nullptr;
+    }
+
+    void* address = nullptr;
+    if (this->IsSymbol(name))
+    {
+        const char* symbol = this->GetSymbol(name);
+        if (!symbol)
+        {
+            ErrorLog("Invalid symbol for %s\n", name);
+            return nullptr;
+        }
+        address = dlsym((*module)->m_hModule, symbol);
+    }
+    else
+    {
+        const char* signature = this->GetSignature(name);
+        if (!signature)
+        {
+            ErrorLog("Failed to find signature for %s\n", name);
+            return nullptr;
+        }
+
+        std::vector<uint8_t> bytes;
+
+        if (!IsValidIDASignature(signature, bytes)) return nullptr;
+
+        address = KHook::LookupSignature((*module)->m_base, (*module)->m_size, signature);
+    }
+
+    if (!address)
+    {
+        ErrorLog("Failed to find address for %s\n", name);
+        return nullptr;
+    }
+    return address;
+}
+
+int CGameConfig::ParseHexNibble(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+
+    const char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (lower >= 'a' && lower <= 'f') return lower - 'a' + 10;
+
+    return -1;
+}
+
+bool CGameConfig::ParsePatternBytes(const char* pattern, std::vector<uint8_t>& bytes)
+{
+    if (!pattern) return false;
+
+    const char* cursor = pattern;
+    while (*cursor)
+    {
+        while (*cursor && std::isspace(static_cast<unsigned char>(*cursor)))
+            cursor++;
+
+        if (!*cursor) break;
+
+        if (*cursor == '?')
+        {
+            bytes.push_back('?');
+            cursor++;
+            if (*cursor == '?') cursor++;
+            continue;
+        }
+
+        const int highNibble = ParseHexNibble(cursor[0]);
+        const int lowNibble = ParseHexNibble(cursor[1]);
+        if (highNibble < 0 || lowNibble < 0) return false;
+
+        bytes.push_back(static_cast<uint8_t>((highNibble << 4) | lowNibble));
+        cursor += 2;
+    }
+
+    return !bytes.empty();
+}
+
+bool CGameConfig::IsValidIDASignature(const char* signature, std::vector<uint8_t>& bytes)
+{
+    if (!signature || strlen(signature) <= 0)
+    {
+        ErrorLog("Invalid IDA signature string\n");
+        return false;
+    }
+
+    if (!ParsePatternBytes(signature, bytes))
+    {
+        ErrorLog("Invalid IDA signature format \"%s\"\n", signature);
+        return false;
+    }
+
+    return true;
+}
+
+byte* CGameConfig::IDASigToUint8Array(const char* signature, size_t& length)
+{
+    std::vector<uint8_t> bytes;
+
+    if (!IsValidIDASignature(signature, bytes)) return nullptr;
+
+    length = bytes.size();
+    uint8_t* dest = new uint8_t[length];
+
+    for (size_t i = 0; i < length; i++)
+        dest[i] = bytes[i];
+
+    return (byte*)dest;
 }

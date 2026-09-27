@@ -12,38 +12,58 @@ for sdk_target in MMSPlugin.sdk_targets:
 
   binary = MMSPlugin.HL2Library(builder, cxx, f'{MMSPlugin.metadata["name"]}.{sdk["name"]}', sdk)
 
-  binary.custom = [builder.tools.Protoc(protoc = sdk_target.protoc, sources = [
-    os.path.join(sdk['path'], 'common', 'network_connection.proto')
-  ])]
-
   binary.compiler.cxxincludes += [
-    os.path.join(builder.currentSourcePath, 'vendor', 'funchook', 'include'),
     os.path.join(builder.sourcePath, 'public'),
     os.path.join(builder.sourcePath, 'include'),
     os.path.join(builder.sourcePath, '..', 'SchemaEntity'),
+    os.path.join(sdk['path'], 'thirdparty', 'protobuf-3.21.8', 'src'),
   ]
 
   if binary.compiler.target.platform == 'linux':
-    binary.compiler.postlink += [
-      os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'libfunchook.a'),
-      os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'libdistorm.a'),
-    ]
+    binary.sources += ['utils/plat_unix.cpp']
   elif binary.compiler.target.platform == 'windows':
     binary.compiler.postlink += [
       os.path.join('psapi.lib'),
-      os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'funchook.lib'),
-      os.path.join(builder.sourcePath, 'vendor', 'funchook', 'lib', 'distorm.lib'),
     ]
+    binary.sources += ['utils/plat_win.cpp']
 
   binary.sources += [
     'statusmodifier.cpp',
     'gameconfig.cpp',
     os.path.join('..', 'SchemaEntity', 'schemasystem.cpp'),
-    os.path.join('..', 'SchemaEntity', 'module.cpp'),
+    # os.path.join('..', 'SchemaEntity', 'module.cpp'),
     os.path.join(sdk['path'], 'entity2', 'entitysystem.cpp'),
     os.path.join(sdk['path'], 'entity2', 'entityidentity.cpp'),
   ]
-  if cxx.target.arch == 'x86':
-    binary.sources += ['sourcehook/sourcehook_hookmangen.cpp']
+
+  protoc_builder = builder.tools.Protoc(protoc = sdk_target.protoc, sources = [
+    os.path.join(sdk['path'], 'game', 'shared', 'usermessages.proto'),
+    os.path.join(sdk['path'], 'game', 'shared', 'cstrike15', 'cstrike15_gcmessages.proto'),
+    os.path.join(sdk['path'], 'game', 'shared', 'cstrike15', 'cstrike15_usermessages.proto'),
+    os.path.join(sdk['path'], 'gcsdk', 'steammessages.proto'),
+    os.path.join(sdk['path'], 'common', 'engine_gcmessages.proto'),
+    os.path.join(sdk['path'], 'gcsdk', 'gcsdk_gcmessages.proto'),
+    os.path.join(sdk['path'], 'common', 'networkbasetypes.proto'),
+    os.path.join(sdk['path'], 'common', 'valveextensions.proto'),
+    os.path.join(sdk['path'], 'common', 'network_connection.proto'),
+    os.path.join(sdk['path'], 'common', 'netmessages.proto'),
+    os.path.join(sdk['path'], 'common', 'source2_steam_stats.proto'),
+  ])
+  # Prepend game/shared/cstrike15 so both ambuild and protoc resolve cstrike15_*.proto
+  # relative to that dir, producing flat output (e.g. cstrike15_usermessages.pb.h).
+  # This fixes "cstrike15_gcmessages.proto: File not found" inside cstrike15_usermessages.proto.
+  protoc_builder.protoc.includes[0:0] = [
+    os.path.join(sdk['path'], 'game', 'shared', 'cstrike15'),
+  ]
+  protoc_builder.protoc.includes += [
+    os.path.join(sdk['path'], 'gcsdk'),
+    os.path.join(sdk['path'], 'common'),
+    os.path.join(sdk['path'], 'game', 'shared'),
+  ]
+
+  binary.custom = [protoc_builder]
+
+  # if cxx.target.arch == 'x86':
+  #   binary.sources += ['sourcehook/sourcehook_hookmangen.cpp']
   nodes = builder.Add(binary)
   MMSPlugin.binaries += [nodes]
