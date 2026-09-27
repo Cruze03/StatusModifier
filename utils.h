@@ -1,9 +1,9 @@
 #pragma once
 
-extern IGameEventSystem *g_pGameEventSystem;
-extern ISmmAPI *g_SMAPI;
+extern IGameEventSystem* g_pGameEventSystem;
+extern ISmmAPI* g_SMAPI;
 
-extern CGameConfig *g_GameConfig;
+extern CGameConfig* g_GameConfig;
 extern std::string g_sServerIP;
 
 #define HUD_PRINTCONSOLE 2
@@ -14,7 +14,7 @@ extern std::string g_sServerIP;
 #define WIN_LINUX(win, linux) linux
 #endif
 
-void ClientPrint(CPlayerSlot slot, int hud_dest, const char *msg, ...)
+void ClientPrint(CPlayerSlot slot, int hud_dest, const char* msg, ...)
 {
     va_list args;
     va_start(args, msg);
@@ -24,8 +24,7 @@ void ClientPrint(CPlayerSlot slot, int hud_dest, const char *msg, ...)
 
     va_end(args);
 
-    INetworkMessageInternal *pNetMsg =
-        g_pNetworkMessages->FindNetworkMessagePartial("TextMsg");
+    INetworkMessageInternal* pNetMsg = g_pNetworkMessages->FindNetworkMessagePartial("TextMsg");
     auto data = pNetMsg->AllocateMessage()->ToPB<CUserMessageTextMsg>();
 
     data->set_dest(hud_dest);
@@ -41,7 +40,7 @@ void ClientPrint(CPlayerSlot slot, int hud_dest, const char *msg, ...)
 std::string FormatCurrentTime()
 {
     std::time_t currentTime = std::time(nullptr);
-    std::tm *localTime = std::localtime(&currentTime);
+    std::tm* localTime = std::localtime(&currentTime);
     std::ostringstream formattedTime;
     formattedTime << std::put_time(localTime, "%m/%d/%Y - %H:%M:%S");
     return formattedTime.str();
@@ -50,27 +49,29 @@ std::string FormatCurrentTime()
 std::string FormatCurrentTime2()
 {
     std::time_t currentTime = std::time(nullptr);
-    std::tm *localTime = std::localtime(&currentTime);
+    std::tm* localTime = std::localtime(&currentTime);
     std::ostringstream formattedTime;
     formattedTime << std::put_time(localTime, "error_%m-%d-%Y");
     return formattedTime.str();
 }
 
-void TrimString(std::string &s)
+void TrimString(std::string& s)
 {
     // Left trim
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c)
-                                    { return !std::isspace(c); }));
+    {
+        return !std::isspace(c);
+    }));
     // Right trim
     s.erase(std::find_if(s.rbegin(), s.rend(),
                          [](unsigned char c)
-                         { return !std::isspace(c); })
-                .base(),
+    {
+        return !std::isspace(c);
+    }).base(),
             s.end());
 }
 
-static void ReplaceAll(std::string &str, const std::string &from,
-                       const std::string &to)
+static void ReplaceAll(std::string& str, const std::string& from, const std::string& to)
 {
     // Case-insensitive search
     std::string lstr = str, lfrom = from;
@@ -100,20 +101,13 @@ std::vector<std::string_view> SplitString(std::string_view str, std::string_view
     return result;
 }
 
-bool IsInvalidChar(char c)
-{
-    return !(c >= 0 && c < 128);
-}
+bool IsInvalidChar(char c) { return !(c >= 0 && c < 128); }
 
-void StripUnicode(std::string &str)
-{
-    str.erase(std::remove_if(str.begin(), str.end(), IsInvalidChar), str.end());
-}
+void StripUnicode(std::string& str) { str.erase(std::remove_if(str.begin(), str.end(), IsInvalidChar), str.end()); }
 
 std::string FormatShortTime(int seconds)
 {
-    if (seconds < 0)
-        seconds = 0;
+    if (seconds < 0) seconds = 0;
 
     int days = seconds / 86400;
     seconds %= 86400;
@@ -146,7 +140,7 @@ std::string FormatShortTime(int seconds)
     return buffer;
 }
 
-void ErrorLog(const char *msg, ...)
+void ErrorLog(const char* msg, ...)
 {
     va_list args;
     va_start(args, msg);
@@ -158,13 +152,10 @@ void ErrorLog(const char *msg, ...)
     ConColorMsg(Color(255, 0, 0, 255), "[Error] %s\n", buf);
 
     char szPath[256], szBuffer[2048];
-    g_SMAPI->PathFormat(szPath, sizeof(szPath),
-                        "%s/addons/logs/status-modifier-%s.txt",
-                        g_SMAPI->GetBaseDir(), FormatCurrentTime2().c_str());
-    g_SMAPI->Format(szBuffer, sizeof(szBuffer), "L %s: %s\n",
-                    FormatCurrentTime().c_str(), buf);
+    g_SMAPI->PathFormat(szPath, sizeof(szPath), "%s/addons/logs/status-modifier-%s.txt", g_SMAPI->GetBaseDir(), FormatCurrentTime2().c_str());
+    g_SMAPI->Format(szBuffer, sizeof(szBuffer), "L %s: %s\n", FormatCurrentTime().c_str(), buf);
 
-    FILE *pFile = fopen(szPath, "a");
+    FILE* pFile = fopen(szPath, "a");
     if (pFile)
     {
         fputs(szBuffer, pFile);
@@ -172,18 +163,14 @@ void ErrorLog(const char *msg, ...)
     }
 }
 
-bool IsIPInvalid(unsigned char ip[4])
-{
-    return ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0;
-}
+bool IsIPInvalid(unsigned char ip[4]) { return ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0; }
 
-using GetPublicAdr_fn = netadr_t *(__thiscall *)(void *);
-const char *GetPublicIP()
+using GetPublicAdr_fn = netadr_t* (*)(void*);
+const char* GetPublicIP()
 {
-    if (!g_sServerIP.empty())
-        return g_sServerIP.c_str();
+    if (!g_sServerIP.empty()) return g_sServerIP.c_str();
 
-    netadr_t *pAddr = vmt::GetVMethod<GetPublicAdr_fn>(g_GameConfig->GetOffset("GetPublicAdr"), g_pNetworkSystem)(g_pNetworkSystem);
+    netadr_t* pAddr = vmt::GetVMethod<GetPublicAdr_fn>(g_GameConfig->GetOffset("GetPublicAdr"), g_pNetworkSystem)(g_pNetworkSystem);
 
     static ConVarRefAbstract port("hostport");
     int hostport = port.GetInt();

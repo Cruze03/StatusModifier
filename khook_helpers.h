@@ -18,7 +18,7 @@
  */
 
 #pragma once
-#include "../gameconfig.h"
+#include "gameconfig.h"
 
 class CKHookBase
 {
