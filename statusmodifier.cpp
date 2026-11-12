@@ -130,7 +130,7 @@ KHook::Return<bool> Detour_ServerSideClient_FilterMessage(CServerSideClientBase*
         return { KHook::Action::Ignore, false };
     }
 
-    int msgid = pMessage->GetNetMessage()->GetNetMessageInfo()->m_MessageId;
+    int msgid = pMessage->GetNetMessage()->m_MessageId;
     static int playerIndex = g_GameConfig->GetOffset("CServerSideClientBase::m_nClientSlot") - WIN_LINUX(8, 48);
     int slot = *(int*)((uintptr_t)pClient + playerIndex);
 

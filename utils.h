@@ -24,7 +24,7 @@ void ClientPrint(CPlayerSlot slot, int hud_dest, const char* msg, ...)
 
     va_end(args);
 
-    INetworkMessageInternal* pNetMsg = g_pNetworkMessages->FindNetworkMessagePartial("TextMsg");
+    auto pNetMsg = g_pNetworkMessages->FindNetworkMessagePartial("TextMsg");
     auto data = pNetMsg->AllocateMessage()->ToPB<CUserMessageTextMsg>();
 
     data->set_dest(hud_dest);
